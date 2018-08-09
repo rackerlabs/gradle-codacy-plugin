@@ -1,0 +1,138 @@
+group = 'org.openrepose'
+def baseVersion = '1.0.0'
+version = project.hasProperty('release') ? baseVersion : "$baseVersion-SNAPSHOT"
+description = "Gradle plugin to publish coverage numbers to codacy"
+
+buildscript {
+    ext {
+        kotlinVersion = '1.2.20'
+    }
+    repositories {
+        maven {
+            url 'https://plugins.gradle.org/m2/'
+        }
+        jcenter()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.gradle.publish:plugin-publish-plugin:0.9.10"
+        classpath "com.netflix.nebula:gradle-git-scm-plugin:3.0.1"
+        classpath "gradle.plugin.org.ysb33r.gradle:gradletest:1.1"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}"
+        classpath "org.jetbrains.kotlin:kotlin-allopen:${kotlinVersion}"
+    }
+}
+
+apply plugin: 'com.gradle.plugin-publish'
+apply plugin: 'kotlin'
+apply plugin: 'maven-publish'
+apply plugin: 'nebula.gradle-git-scm'
+apply plugin: 'org.ysb33r.gradletest'
+
+repositories {
+    jcenter()
+    mavenCentral()
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+dependencies {
+    compile gradleApi()
+    compile 'org.slf4j:slf4j-api:1.7.6'
+    compile 'commons-validator:commons-validator:1.4.0'
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.hamcrest:hamcrest-all:1.3'
+    gradleTest 'com.google.guava:guava:18.0'
+    gradleTest 'commons-validator:commons-validator:1.4.0'
+    gradleTest 'org.jsoup:jsoup:1.8.2'
+}
+
+// NOTE:    The gradle.publish.key and gradle.publish.secret need added to your ~/.gradle/gradle.properties as per the
+//          instructions located at https://plugins.gradle.org/docs/submit
+pluginBundle {
+    website = 'https://github.com/rackerlabs/gradle-codacy-plugin'
+    vcsUrl = 'https://github.com/rackerlabs/gradle-codacy-plugin'
+    description = project.description
+    tags = ['codacy', 'code coverage']
+
+    plugins {
+        gradleCodacyPlugin {
+            id = 'org.openrepose.gradle.plugins.codacy'
+            displayName = 'Gradle Codacy Code Coverage plugin'
+        }
+    }
+}
+
+publishing {
+    publications {
+        mavenJar(MavenPublication) {
+            from components.java
+        }
+    }
+
+    repositories {
+        maven {
+            name 'releases.maven.research.rackspace.com'
+            url 'https://maven.research.rackspacecloud.com/content/repositories/releases'
+            credentials {
+                // NOTE: These properties should be in your ~/.gradle/gradle.properties
+                username property('maven.repo.username')
+                password property('maven.repo.password')
+            }
+        }
+    }
+}
+
+task('tagVersion', description: 'Tag the repository with the current version.', group: 'release') {
+    doLast {
+        scmFactory.create().tag(version)
+    }
+}
+
+task('release', description: 'Release the project and publish to public repo.', group: 'release', dependsOn: [test, publish, tagVersion, publishPlugins])
+
+task unversionedJar(type: Jar, dependsOn: 'jar') {
+    version = null
+    from sourceSets.main.output
+}
+
+task installPlugin(type: Copy, dependsOn: 'unversionedJar') {
+    def gradleInstallDir = gradle.gradleHomeDir
+    group = 'installation'
+    description = 'Installs the plugin jar in your gradle distribution.'
+    from "${buildDir}/libs/${unversionedJar.archiveName}"
+    into "/${gradleInstallDir}/lib/plugins"
+    doLast {
+        println "Installed in: ${gradleInstallDir}/lib/plugins as: ${unversionedJar.archiveName}"
+    }
+}
+
+task uninstallPlugin(type: Delete) {
+    def gradleInstallDir = gradle.gradleHomeDir
+    group = 'installation'
+    description = 'Removes the plugin from your gradle distribution.'
+    delete("/${gradleInstallDir}/lib/plugins/${unversionedJar.archiveName}")
+}
+
+task copyJarfile(type: Copy) {
+    dependsOn jar
+    from(jar)
+    into("${project.buildDir}/gradleTest/repo/")
+}
+
+tasks.withType(Groovydoc).all { enabled = false }
+
+gradleTest {
+    dependsOn copyJarfile
+
+    versions '2.0', '2.1', '2.2', '2.3', '2.4', '2.5', '2.6', '2.7', '2.8', '2.9'
+    versions '2.10', '2.11', '2.12', '2.13', '2.14.1'
+    versions '3.0', '3.1', '3.2.1', '3.3', '3.4.1', '3.5.1'
+    versions '4.0', '4.1', '4.2', '4.3.1', '4.4'
+    versions '4.5'
+
+    beforeTest {
+        println "  ${it.name}"
+    }
+}
