@@ -1,9 +1,11 @@
 package org.openrepose.gradle.plugins.codacy
 
+import org.apache.commons.lang3.StringUtils
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.testing.jacoco.tasks.JacocoReport
 import org.scoverage.ScoverageExtension
+import org.scoverage.ScoverageReport
 import java.io.File
 
 class CodacyPlugin : Plugin<Project> {
@@ -13,17 +15,13 @@ class CodacyPlugin : Plugin<Project> {
         val codacyFinalizeTask = project.tasks.create("sendCodacyReport", CodacyFinalizeTask::class.java)
         codacyFinalizeTask.pluginExtension = codacyPluginExtension
         //look through the projects for jacoco and scoverage tasks and add a report task
-        project.allprojects
-                .filter { subproject -> subproject.tasks.findByName("jacocoTestReport") != null }
-                .forEach { subproject -> buildJacocoTask(subproject, codacyFinalizeTask, codacyPluginExtension) }
-        project.allprojects
-                .filter { subproject -> subproject.tasks.findByName("reportScoverage") != null }
-                .forEach { subproject -> buildScoverageTask(subproject, codacyFinalizeTask, codacyPluginExtension) }
+        project.allprojects.forEach { subproject -> buildJacocoTask(subproject, codacyFinalizeTask, codacyPluginExtension) }
+        project.allprojects.forEach { subproject -> buildScoverageTask(subproject, codacyFinalizeTask, codacyPluginExtension) }
     }
 
     private fun buildJacocoTask(subproject: Project, finalizeTask: CodacyFinalizeTask, extension: CodacyPluginExtension) {
         subproject.tasks.withType(JacocoReport::class.java) { reportTask ->
-            val jacocoTask = subproject.tasks.create("sendCodacyJacocoReport", CodacyJacocoTask::class.java)
+            val jacocoTask = subproject.tasks.create("sendCodacy${StringUtils.capitalize(reportTask.getName())}", CodacyJacocoTask::class.java)
             finalizeTask.dependsOn(jacocoTask)
             jacocoTask.pluginExtension = extension
             jacocoTask.outputFile = reportTask.reports.xml.destination
@@ -32,10 +30,12 @@ class CodacyPlugin : Plugin<Project> {
     }
 
     private fun buildScoverageTask(subproject: Project, finalizeTask: CodacyFinalizeTask, extension: CodacyPluginExtension) {
-        val scoverageTask = subproject.tasks.create("sendCodacyScoverageReport", CodacyScoverageTask::class.java)
-        finalizeTask.dependsOn(scoverageTask)
-        scoverageTask.pluginExtension = extension
-        scoverageTask.outputFile = File(subproject.extensions.getByType(ScoverageExtension::class.java).reportDir, "cobertura.xml")
-        scoverageTask.dependsOn(subproject.tasks.findByName("reportScoverage"))
+        subproject.tasks.withType(ScoverageReport::class.java) { reportTask ->
+            val scoverageTask = subproject.tasks.create("sendCodacy${StringUtils.capitalize(reportTask.getName())}", CodacyScoverageTask::class.java)
+            finalizeTask.dependsOn(scoverageTask)
+            scoverageTask.pluginExtension = extension
+            scoverageTask.outputFile = File(subproject.extensions.getByType(ScoverageExtension::class.java).reportDir, "cobertura.xml")
+            scoverageTask.dependsOn(reportTask)
+        }
     }
 }

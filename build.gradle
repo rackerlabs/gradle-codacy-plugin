@@ -1,5 +1,5 @@
 group = 'org.openrepose'
-def baseVersion = '1.0.0'
+def baseVersion = '1.0.1'
 version = project.hasProperty('release') ? baseVersion : "$baseVersion-SNAPSHOT"
 description = "Gradle plugin to publish coverage numbers to codacy"
 
@@ -46,6 +46,7 @@ dependencies {
     compile gradleApi()
     compile 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
     compile 'com.codacy:codacy-coverage-reporter:4.0.5'
+    compile 'org.apache.commons:commons-lang3:3.3.2'
     compileOnly 'gradle.plugin.org.scoverage:gradle-scoverage:2.1.0'
     testCompile 'junit:junit:4.12'
     testCompile 'org.hamcrest:hamcrest-all:1.3'
