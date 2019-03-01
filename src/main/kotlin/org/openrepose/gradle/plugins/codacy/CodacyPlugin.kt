@@ -34,7 +34,7 @@ class CodacyPlugin : Plugin<Project> {
             val scoverageTask = subproject.tasks.create("sendCodacy${StringUtils.capitalize(reportTask.getName())}", CodacyScoverageTask::class.java)
             finalizeTask.dependsOn(scoverageTask)
             scoverageTask.pluginExtension = extension
-            scoverageTask.outputFile = File(subproject.extensions.getByType(ScoverageExtension::class.java).reportDir, "cobertura.xml")
+            scoverageTask.outputFile = File(reportTask.args[2], "cobertura.xml")
             scoverageTask.dependsOn(reportTask)
         }
     }
